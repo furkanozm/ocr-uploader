@@ -1,5 +1,5 @@
 [phases.setup]
-nixPkgs = ["python311", "python311Packages.pip", "gcc", "libGL"]
+nixPkgs = ["python311", "python311Packages.pip", "gcc", "libGL", "mesa", "mesa_drivers"]
 
 [phases.install]
 cmds = [
