@@ -8,6 +8,7 @@ import base64
 import io
 import re
 from ultralytics import YOLO
+import os
 
 app = FastAPI()
 
@@ -22,7 +23,7 @@ app.add_middleware(
 reader = easyocr.Reader(['tr'], gpu=False)
 
 # Yüz tespiti için Haar Cascade dosyası (OpenCV default path veya backend dizininde olmalı)
-FACE_CASCADE_PATH = "haarcascade_frontalface_default.xml"
+FACE_CASCADE_PATH = os.path.join(os.path.dirname(__file__), "haarcascade_frontalface_default.xml")
 face_cascade = cv2.CascadeClassifier(FACE_CASCADE_PATH)
 
 def validate_tckn(tckn):
