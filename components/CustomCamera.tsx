@@ -34,7 +34,7 @@ export default function CustomCamera({
   };
 
   // Fotoğraf çek
-  const capture = () => {
+  const capture = async () => {
     if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -42,6 +42,8 @@ export default function CustomCamera({
       setError("Kamera hazır değil.");
       return;
     }
+    // Otofokus için 1 saniye bekle
+    await new Promise(resolve => setTimeout(resolve, 1000));
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -80,6 +82,12 @@ export default function CustomCamera({
   return (
     <div style={{ textAlign: "center" }}>
       {error && <div className="text-red-600 font-medium mb-2">{error}</div>}
+      {/* Netlik ve flash uyarısı */}
+      {step !== "done" && (
+        <div className="text-yellow-700 font-medium mb-2">
+          Lütfen kimliği netleştirin ve mümkünse flash açıkken çekin.
+        </div>
+      )}
       {step !== "done" && (
         <>
           <div style={{ position: "relative", display: "inline-block" }}>
