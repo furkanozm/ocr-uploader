@@ -48,36 +48,38 @@ def extract_fields(lines):
     }
     # TCKN
     for line in lines:
-        match = re.search(r"([1-9][0-9]{10})", line)
+        match = re.search(r"([1-9][0-9]{10})", line.replace(" ", ""))
         if match and validate_tckn(match.group(1)):
             fields["tckn"] = match.group(1)
             break
+
     label_map = {
-        "ad": ["ADI", "GIVEN NAME", "GIVEN NAME(S)", "ADİ"],
-        "soyad": ["SOYADI", "SURNAME", "SOYADİ"],
+        "ad": ["ADI", "GIVEN NAME", "GIVEN NAME(S)", "ADİ", "NAME"],
+        "soyad": ["SOYADI", "SURNAME", "SOYADİ", "SURNAM"],
         "ana_adi": ["ANA ADI", "MOTHER'S NAME", "ANA ADİ", "MOTRERS", "MOTHRERS", "MOTERS", "AFFE", "FFE"],
         "baba_adi": ["BABA ADI", "FATHER'S NAME", "BABA ADİ", "FATNERS", "FATHERS", "FATERS", "BACZ"],
-        "dogum_tarihi": ["DOĞUM TARIHI", "DATE OF BIRTH", "DOGUM TARIHI", "DOĞUM TATİHİ"],
+        "dogum_tarihi": ["DOĞUM TARIHI", "DATE OF BIRTH", "DOGUM TARIHI", "DOĞUM TATİHİ", "BIRTH"],
         "cinsiyet": ["CİNSİYET", "GENDER", "GANDER"]
     }
     all_labels = [l for labels in label_map.values() for l in labels]
-    def find_value_after_label(label_list, lines, min_length=2):
+
+    def find_value(label_list, lines, min_length=2):
         for i, line in enumerate(lines):
-            line_stripped = line.strip().upper()
+            line_upper = line.strip().upper()
             for label in label_list:
-                label_stripped = label.strip().upper()
-                # Eğer etiket 'ADI' ise, tam kelime olarak (word boundary) eşleşmeli
-                if label_stripped == 'ADI':
-                    if re.search(r'\bADI\b', line_stripped):
-                        match = True
-                    else:
-                        match = False
-                else:
-                    match = (line_stripped == label_stripped or label_stripped in line_stripped)
-                if match:
+                label_upper = label.strip().upper()
+                # Etiket satırda varsa, değeri aynı satırda veya hemen sonrasında ara
+                if label_upper in line_upper:
+                    # Aynı satırda etiket ve değer varsa (örn: "ADI FURKAN")
+                    parts = line_upper.split(label_upper)
+                    if len(parts) > 1 and len(parts[1].strip()) >= min_length:
+                        candidate = parts[1].strip()
+                        if candidate not in all_labels and re.match(r'^[A-Za-zÇĞİÖŞÜçğıöşü ]+$', candidate):
+                            return candidate
+                    # Sonraki 1-3 satırda değeri ara
                     for j in range(1, 4):
-                        if i+j < len(lines):
-                            candidate = lines[i+j].strip()
+                        if i + j < len(lines):
+                            candidate = lines[i + j].strip()
                             candidate_upper = candidate.upper()
                             if (
                                 candidate_upper not in all_labels
@@ -87,66 +89,37 @@ def extract_fields(lines):
                                 and re.match(r'^[A-Za-zÇĞİÖŞÜçğıöşü ]+$', candidate)
                             ):
                                 return candidate
-                    break
         return ""
-    # Ad, soyad, ana adı, baba adı
-    fields["ad"] = find_value_after_label(label_map["ad"], lines, min_length=2)
-    fields["soyad"] = find_value_after_label(label_map["soyad"], lines, min_length=2)
-    fields["ana_adi"] = find_value_after_label(label_map["ana_adi"], lines, min_length=4)
-    fields["baba_adi"] = find_value_after_label(label_map["baba_adi"], lines, min_length=4)
-    # Doğum tarihi etiketten sonra gelen ilk tarih formatı
-    for i, line in enumerate(lines):
-        upper = line.upper()
-        for label in label_map["dogum_tarihi"]:
-            if label in upper:
-                for j in range(1, 4):
-                    if i+j < len(lines):
-                        candidate = lines[i+j].strip()
-                        match = re.search(r"(\d{2}[./-]\d{2}[./-]\d{4})", candidate)
-                        if match:
-                            fields["dogum_tarihi"] = match.group(1)
-                            break
-                break
-        if fields["dogum_tarihi"]:
-            break
-    # Eğer etiketten sonra bulunamazsa, regex ile tüm satırlarda ara
+
+    # Alanları bul
+    fields["ad"] = find_value(label_map["ad"], lines, min_length=2)
+    fields["soyad"] = find_value(label_map["soyad"], lines, min_length=2)
+    fields["ana_adi"] = find_value(label_map["ana_adi"], lines, min_length=3)
+    fields["baba_adi"] = find_value(label_map["baba_adi"], lines, min_length=3)
+
+    # Doğum tarihi için hem etiketli hem regex ile ara
+    fields["dogum_tarihi"] = find_value(label_map["dogum_tarihi"], lines, min_length=6)
     if not fields["dogum_tarihi"]:
         for line in lines:
             match = re.search(r"(\d{2}[./-]\d{2}[./-]\d{4})", line)
             if match:
                 fields["dogum_tarihi"] = match.group(1)
                 break
-    # Cinsiyet etiketten sonra gelen ilk uygun değer
+
+    # Cinsiyet için hem etiketli hem satırda ara
     def normalize_gender(val):
-        v = val.replace(" ", "").replace("-", "/").replace(".", "/")
+        v = val.replace(" ","").replace("-", "/").replace(".", "/")
         v = v.replace("\\", "/")
         v = v.upper()
         return v
-    erkek_kisaltmalar = ["E/M", "E/M.", "E/M-", "E/M,", "E/M:", "E/M;", "E/M)", "E/M(", "E/M]", "E/M[", "E/M}", "E/M{" ]
-    kadin_kisaltmalar = ["K/F", "K/F.", "K/F-", "K/F,", "K/F:", "K/F;", "K/F)", "K/F(", "K/F]", "K/F[", "K/F}", "K/F{" ]
     def is_erkek(val):
         v = normalize_gender(val)
         return v in ["ERKEK", "MALE"] or v.startswith("E/M")
     def is_kadin(val):
         v = normalize_gender(val)
         return v in ["KADIN", "FEMALE"] or v.startswith("K/F")
-    for i, line in enumerate(lines):
-        upper = line.upper()
-        for label in label_map["cinsiyet"]:
-            if label in upper:
-                for j in range(1, 4):
-                    if i+j < len(lines):
-                        candidate = lines[i+j].strip().upper()
-                        if is_erkek(candidate):
-                            fields["cinsiyet"] = "ERKEK"
-                            break
-                        if is_kadin(candidate):
-                            fields["cinsiyet"] = "KADIN"
-                            break
-                break
-        if fields["cinsiyet"]:
-            break
-    # Eğer etiketten sonra bulunamazsa, satırlarda ara
+
+    fields["cinsiyet"] = find_value(label_map["cinsiyet"], lines, min_length=1)
     if not fields["cinsiyet"]:
         for line in lines:
             upper = line.upper()
@@ -156,12 +129,13 @@ def extract_fields(lines):
             if is_kadin(upper):
                 fields["cinsiyet"] = "KADIN"
                 break
+
     # Alanlar kısa veya şüpheli ise boş yap
     for k in fields:
         if fields[k]:
             if k in ["ana_adi", "baba_adi", "ad", "soyad"]:
                 if (
-                    len(fields[k]) < (4 if k in ["ana_adi", "baba_adi"] else 2)
+                    len(fields[k]) < (3 if k in ["ana_adi", "baba_adi"] else 2)
                     or fields[k].upper() in all_labels
                     or fields[k] in ["-", "(", ")", "(S)"]
                     or fields[k].strip().startswith(('/', ':', '-'))
@@ -170,7 +144,7 @@ def extract_fields(lines):
                     fields[k] = ""
             else:
                 if (
-                    len(fields[k]) < 2
+                    len(fields[k]) < 1
                     or fields[k].upper() in all_labels
                     or fields[k] in ["-", "(", ")", "(S)"]
                     or fields[k].strip().startswith(('/', ':', '-'))
