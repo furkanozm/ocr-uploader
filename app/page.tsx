@@ -104,7 +104,7 @@ export default function OcrUploaderPage() {
         };
         formData.append("front", base64ToFile(frontImage, "front.png"));
         formData.append("back", base64ToFile(backImage, "back.png"));
-        const res = await fetch("http://localhost:8000/ocr", {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ocr`, {
           method: "POST",
           body: formData,
         })
@@ -154,7 +154,7 @@ export default function OcrUploaderPage() {
       const formData = new FormData()
       formData.append("front", frontFile)
       formData.append("back", backFile)
-      const res = await fetch("http://localhost:8000/ocr", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ocr`, {
         method: "POST",
         body: formData,
       })
