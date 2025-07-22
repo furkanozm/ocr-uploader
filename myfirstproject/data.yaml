@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['passport']
+
+roboflow:
+  workspace: furkanozm
+  project: passport-xwnm3-fnc0a
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/furkanozm/passport-xwnm3-fnc0a/dataset/1
