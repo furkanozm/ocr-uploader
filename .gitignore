@@ -25,3 +25,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+   venv/
+   *.pt
+   *.dylib
+   *.so
+   *.onnx
+   *.pkl
+   __pycache__/
+   node_modules/
